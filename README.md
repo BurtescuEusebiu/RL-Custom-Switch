@@ -54,4 +54,25 @@ Each switch reads a configuration file to determine priority and port roles.
 ```text
 <priority>
 <interface_id> <VLAN_ID | T>
+```
+## How to Run
+
+### 1. Start Mininet Topology
+Run the topology script with sudo privileges:
+```bash
+sudo python3 topo.py
+```
+
+### 2. Start Switches
+Run the switch software for each node, specifying the switch ID and interfaces:
+```bash
+python3 switch.py <switch_id> <interfaces...>
+```
+
+### 3. Test Connectivity
+```bash
+ping hostX
+```
+
+
 
