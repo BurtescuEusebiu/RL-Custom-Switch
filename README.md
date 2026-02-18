@@ -1,26 +1,172 @@
-1 2 3
+Ethernet Switch with VLAN and PSTP
+Overview
 
-1. Am luat pseudocodul din cerinta pentru partea cu learning. Nimic de adaugat aici.
+This project implements a software-based Ethernet switch in Python, developed and tested using Mininet.
+The switch supports:
 
-Explicatie ex1.jpg:
-    Se vede in ss cum am trimis de la host0 la host2. In terminalul host 2 este trecut si numele meu + grupa. Se observa si un window de wireshark cu host2 unde sunt ping request si reply, adica a ajuns packetula acolo, iar in host0 terminal se vad cum au si ajuns aceste reply uri.
+MAC learning and frame forwarding
 
-2. M-am luat dupa cerinta pentru vlan si am implementat citire a config file-ului, creare logica trunk, verificare vlan + verificare vlan extins. Aici mari dificultati nu am intalnit, decat ca am uitat sa fac vlanul extins prima data (forgor).
-   Pe scurt, daca primesc un pachet pe un trunk creez si o varianta non trunk fara acel vlan tag, else daca primesc de pe un acces fac si o varianta cu acel tag, si le trimit pe ambele in functie de interfata destinatie, ori vlan ori trunk.
+Custom VLAN tagging (Poli VLAN – 802.1Q-like)
 
-Explicatie ex2.jpg:
-    Se vede in ss cum am incercat sa trm de la host0 la host3, dar au vlan diferit, deci nu ajunge. Dar se vede in wireshark cum ajunge packetul in switchu 1 si e tagged (are protocol 8200)
+Simplified Spanning Tree Protocol (PSTP)
 
-3. Am implementat intai functia care trimite HDPU uri, dau sleep(1) dupa fiecare loop in care trimit la toti in vecinii (acces si trunks). Cand le citescc dau continue.
-    Dupa am implementat fuctia de trimitr PPDU uri, am luat toate valorile alea din cerinta/standardu 802.1D - 2004. Sper ca sunt corecte (port ochelari => nu vad si ma uit la short pe yt => nu am attention span). Pe astea le trimit doar pe switch uri.
-    Logica lor este:
-    Verific root_id ul, daca e altul, fac interfata aia forwarding (de pe care a venit) si restu blocked. Daca sunt egale verific distantele, else bridge id urile. Daca sunt in root fac toate porturile forwarding. Apoi am adaugat in logica de la 2, verificari:
-        daca primesc pe port blocat arunc si verific sa fie un port pornit si cand vreau sa trimit. Ca sa mearga in cam table bag doar daca e deschis acel port. De asemenea PPDU urile le trimit in interval de 2 secunde (hello time ul din standard).
+The goal is to simulate real Layer 2 switch behavior, including loop prevention and VLAN isolation.
 
-    Aici cele mai multe dificultati le am avut ca nu am citit bine valorile specifice si aveam probleme. Dar sper ca le am rezolvat pe toate
+Features
+1. MAC Learning & Forwarding
 
-Explicatie ex3.jpg:
-    Aici doar am pornit switchurile si se vede un packet ppdu cu tot cu continutul. Se vad si packete bogus, care sunt hello urile.
-    Nu prea am ce sa mentionez decat ca se observa ca e corect ppdu ul
+Learns source MAC addresses and associates them with input ports (CAM table).
 
-Legat de pptx: Nu sunt un artist si nici nu mai am timp e 23:11, dar zic ca se intelege cat de cat.# RL-Custom-Switch
+Forwards unicast frames to known destinations.
+
+Floods unknown unicast and broadcast frames.
+
+Drops frames received on blocked ports (STP state).
+
+2. VLAN Support (Poli VLAN Tagging)
+
+Custom VLAN tagging protocol similar to IEEE 802.1Q:
+
+TPID: 0x8200
+
+VLAN ID: 12 bits (configured per port)
+
+Upper 4 bits of TCI: sum of MAC address nibbles (used for validation)
+
+Frame size increases by 4 bytes when tagged
+
+Port Types:
+
+Access ports:
+
+Connect hosts
+
+Frames are sent untagged
+
+VLAN is determined by port configuration
+
+Trunk ports:
+
+Connect switches
+
+Frames are transmitted with VLAN tag
+
+Carry traffic from multiple VLANs
+
+VLAN forwarding rules:
+
+Access → Trunk: add VLAN tag
+
+Trunk → Access: remove VLAN tag
+
+Forward only within same VLAN (or trunk ports)
+
+3. PSTP (Poli Spanning Tree Protocol)
+
+Simplified implementation of IEEE 802.1D Spanning Tree:
+
+Implemented Components:
+
+HPDU (Hello Protocol Data Unit):
+
+Sent every second
+
+Ethernet type 0x0800
+
+Broadcast destination MAC
+
+PPDU (Poli Protocol Data Unit):
+
+Custom BPDU-like packet using LLC header (DSAP=0x42, SSAP=0x42)
+
+Contains: Root Bridge ID, Sender Bridge ID, Root Path Cost, Port ID, Sequence number modulo 100
+
+STP Behavior:
+
+Each switch initially considers itself root.
+
+Root election based on lowest Bridge ID.
+
+Root path cost updated dynamically.
+
+Ports can be:
+
+Forwarding
+
+Blocking
+
+Only trunk ports are blocked when needed to eliminate loops.
+
+One global spanning tree for all VLANs.
+
+Configuration
+
+Each switch reads a configuration file:
+
+<priority>
+<interface_id> <VLAN_ID | T>
+
+
+T → trunk port
+
+number → access port with that VLAN
+
+Example:
+
+10
+0 1
+1 T
+2 2
+
+How to Run
+
+Start Mininet topology:
+
+sudo python3 topo.py
+
+
+Start each switch:
+
+python3 switch.py <switch_id> <interfaces...>
+
+
+Test connectivity:
+
+ping hostX
+
+
+Use Wireshark to inspect:
+
+VLAN tagging (TPID 0x8200)
+
+PPDU frames
+
+HPDU frames
+
+Design Decisions
+
+CAM table implemented using a Python dictionary.
+
+STP state stored per-port using a port_states list.
+
+Global root information protected with a threading lock.
+
+PPDU sending runs in a separate thread (hello timer = 2s).
+
+Cost per link set to 19 (100 Mbps, according to 802.1D).
+
+Limitations
+
+Single spanning tree for all VLANs.
+
+No port state transitions (Listening/Learning not implemented).
+
+No link failure detection (HPDU only sent, not processed).
+
+Testing
+
+Manual testing using ping
+
+Wireshark inspection of VLAN tags and PPDU frames
+
+Automated checker provided in assignment
