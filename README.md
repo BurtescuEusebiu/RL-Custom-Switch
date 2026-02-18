@@ -1,172 +1,57 @@
-Ethernet Switch with VLAN and PSTP
-Overview
+# Ethernet Switch with VLAN and PSTP
 
-This project implements a software-based Ethernet switch in Python, developed and tested using Mininet.
-The switch supports:
+## Overview
 
-MAC learning and frame forwarding
+This project implements a software-based Ethernet switch in Python, developed and tested using Mininet. The switch simulates real Layer 2 switch behavior, including MAC learning, frame forwarding, loop prevention via Spanning Tree Protocol, and VLAN isolation.
 
-Custom VLAN tagging (Poli VLAN – 802.1Q-like)
+## Features
 
-Simplified Spanning Tree Protocol (PSTP)
+### 1. MAC Learning and Forwarding
+- **CAM Table:** Learns source MAC addresses and associates them with input ports using a Python dictionary.
+- **Forwarding Logic:**
+  - Forwards unicast frames to known destinations.
+  - Floods unknown unicast and broadcast frames to all active ports.
+  - Drops frames received on ports blocked by STP.
 
-The goal is to simulate real Layer 2 switch behavior, including loop prevention and VLAN isolation.
+### 2. VLAN Support (Poli VLAN Tagging)
+Implements a custom VLAN tagging protocol similar to IEEE 802.1Q.
 
-Features
-1. MAC Learning & Forwarding
+- **Tag Structure:**
+  - **TPID:** 0x8200
+  - **VLAN ID:** 12 bits (configured per port)
+  - **TCI Upper 4 Bits:** Sum of MAC address nibbles (used for validation)
+  - **Frame Size:** Increases by 4 bytes when tagged
 
-Learns source MAC addresses and associates them with input ports (CAM table).
+- **Port Types:**
+  - **Access Ports:** Connect to hosts. Frames are sent untagged. VLAN is determined by port configuration.
+  - **Trunk Ports:** Connect to switches. Frames are transmitted with VLAN tags. Carry traffic from multiple VLANs.
 
-Forwards unicast frames to known destinations.
+- **Forwarding Rules:**
+  - **Access to Trunk:** Add VLAN tag.
+  - **Trunk to Access:** Remove VLAN tag.
+  - **Isolation:** Forward only within the same VLAN (or via trunk ports).
 
-Floods unknown unicast and broadcast frames.
+### 3. PSTP (Poli Spanning Tree Protocol)
+A simplified implementation of IEEE 802.1D Spanning Tree Protocol.
 
-Drops frames received on blocked ports (STP state).
+- **Protocol Data Units:**
+  - **HPDU (Hello Protocol Data Unit):** Sent every second. Ethernet type 0x0800. Broadcast destination MAC.
+  - **PPDU (Poli Protocol Data Unit):** Custom BPDU-like packet using LLC header (DSAP=0x42, SSAP=0x42). Contains Root Bridge ID, Sender Bridge ID, Root Path Cost, Port ID, and Sequence number (modulo 100).
 
-2. VLAN Support (Poli VLAN Tagging)
+- **STP Behavior:**
+  - Each switch initially considers itself the root.
+  - Root election based on lowest Bridge ID.
+  - Root path cost updated dynamically (Cost per link set to 19, representing 100 Mbps per 802.1D).
+  - **Port States:** Forwarding or Blocking.
+  - Only trunk ports are blocked when necessary to eliminate loops.
+  - One global spanning tree is used for all VLANs.
 
-Custom VLAN tagging protocol similar to IEEE 802.1Q:
+## Configuration
 
-TPID: 0x8200
+Each switch reads a configuration file to determine priority and port roles.
 
-VLAN ID: 12 bits (configured per port)
-
-Upper 4 bits of TCI: sum of MAC address nibbles (used for validation)
-
-Frame size increases by 4 bytes when tagged
-
-Port Types:
-
-Access ports:
-
-Connect hosts
-
-Frames are sent untagged
-
-VLAN is determined by port configuration
-
-Trunk ports:
-
-Connect switches
-
-Frames are transmitted with VLAN tag
-
-Carry traffic from multiple VLANs
-
-VLAN forwarding rules:
-
-Access → Trunk: add VLAN tag
-
-Trunk → Access: remove VLAN tag
-
-Forward only within same VLAN (or trunk ports)
-
-3. PSTP (Poli Spanning Tree Protocol)
-
-Simplified implementation of IEEE 802.1D Spanning Tree:
-
-Implemented Components:
-
-HPDU (Hello Protocol Data Unit):
-
-Sent every second
-
-Ethernet type 0x0800
-
-Broadcast destination MAC
-
-PPDU (Poli Protocol Data Unit):
-
-Custom BPDU-like packet using LLC header (DSAP=0x42, SSAP=0x42)
-
-Contains: Root Bridge ID, Sender Bridge ID, Root Path Cost, Port ID, Sequence number modulo 100
-
-STP Behavior:
-
-Each switch initially considers itself root.
-
-Root election based on lowest Bridge ID.
-
-Root path cost updated dynamically.
-
-Ports can be:
-
-Forwarding
-
-Blocking
-
-Only trunk ports are blocked when needed to eliminate loops.
-
-One global spanning tree for all VLANs.
-
-Configuration
-
-Each switch reads a configuration file:
-
+**File Format:**
+```text
 <priority>
 <interface_id> <VLAN_ID | T>
 
-
-T → trunk port
-
-number → access port with that VLAN
-
-Example:
-
-10
-0 1
-1 T
-2 2
-
-How to Run
-
-Start Mininet topology:
-
-sudo python3 topo.py
-
-
-Start each switch:
-
-python3 switch.py <switch_id> <interfaces...>
-
-
-Test connectivity:
-
-ping hostX
-
-
-Use Wireshark to inspect:
-
-VLAN tagging (TPID 0x8200)
-
-PPDU frames
-
-HPDU frames
-
-Design Decisions
-
-CAM table implemented using a Python dictionary.
-
-STP state stored per-port using a port_states list.
-
-Global root information protected with a threading lock.
-
-PPDU sending runs in a separate thread (hello timer = 2s).
-
-Cost per link set to 19 (100 Mbps, according to 802.1D).
-
-Limitations
-
-Single spanning tree for all VLANs.
-
-No port state transitions (Listening/Learning not implemented).
-
-No link failure detection (HPDU only sent, not processed).
-
-Testing
-
-Manual testing using ping
-
-Wireshark inspection of VLAN tags and PPDU frames
-
-Automated checker provided in assignment
